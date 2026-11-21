@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kid Command Center</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --panel: #ffffff; --ink: #1c1c1a; --muted: #6a6963; --line: #e2e0d9;
+    --accent: #2b5c8a; --accent-soft: #e3ecf5; --ok: #2f7a4f; --ok-soft: #e2f1e8;
+    --bad: #b23a2e; --bad-soft: #f8e4e1; --warn: #9a6a00; --warn-soft: #f8efd6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141513; --panel: #1d1f1c; --ink: #ecebe6; --muted: #9a9993; --line: #30332e;
+            --accent: #8fb8e0; --accent-soft: #1f2a35; --ok: #7cc79b; --ok-soft: #1d2b22;
+            --bad: #f08a7e; --bad-soft: #35201d; --warn: #e7c06a; --warn-soft: #332b17; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 22px 16px 60px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { font-size: 21px; margin: 0; }
+  .status { font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
+  .status.off { background: var(--bad-soft); color: var(--bad); }
+  .spacer { flex: 1; }
+  nav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: wrap; }
+  nav a { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+  nav a.on { color: var(--accent); border-color: var(--accent); }
+  button, select, input { font: inherit; color: var(--ink); background: var(--panel);
+         border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600; }
+  button.danger { color: var(--bad); }
+  button.small { padding: 2px 9px; font-size: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card > p { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tile .n { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .l { color: var(--muted); font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th.num { text-align: right; }
+  .what { font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kind { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .kind.app { background: var(--line); color: var(--muted); }
+  .pill { font-size: 12px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.locked { background: var(--bad-soft); color: var(--bad); }
+  .pill.limit { background: var(--warn-soft); color: var(--warn); }
+  .pill.free { background: var(--ok-soft); color: var(--ok); }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 4px; width: 160px; max-width: 100%; }
+  .bar div { height: 100%; background: var(--warn); }
+  .bar div.full { background: var(--bad); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .form input[type=text] { min-width: 200px; flex: 1; }
+  .muted { color: var(--muted); }
+  .err { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .hidden { display: none !important; }
+  .login { max-width: 380px; margin: 12vh auto; }
+  .login input { width: 100%; margin: 6px 0 10px; padding: 10px 12px; }
+  .login button { width: 100%; padding: 10px; }
+  .ev { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .ev .t { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev .k { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; height: fit-content; }
+  .ev .k.blocked, .ev .k.limit_reached, .ev .k.gap { background: var(--bad-soft); color: var(--bad); }
+  .ev .k.warning { background: var(--warn-soft); color: var(--warn); }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 18px; max-width: 420px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgb(0 0 0 / .35); }
+  dialog h3 { margin: 0 0 10px; font-size: 16px; }
+  dialog label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  dialog input, dialog select { width: 100%; }
+  dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <!-- sign in / first-time setup -->
+  <section id="loginView" class="hidden">
+    <div class="card login">
+      <h2 id="loginTitle">Parent sign-in</h2>
+      <p id="loginHelp" class="muted" style="font-size:13px">Enter the parent password.</p>
+      <form id="loginForm">
+        <input id="pw" type="password" autocomplete="current-password" placeholder="Password" />
+        <input id="pw2" type="password" autocomplete="new-password" placeholder="Repeat password" class="hidden" />
+        <button class="primary" type="submit" id="loginBtn">Sign in</button>
+        <div class="err" id="loginErr"></div>
+      </form>
+    </div>
+  </section>
+
+  <section id="appView" class="hidden">
+    <header>
+      <h1>Kid Command Center</h1>
+      <span class="status" id="monStatus">Monitoring</span>
+      <span class="spacer"></span>
+      <select id="day" aria-label="Day"></select>
+      <button id="refresh" title="Refresh">Refresh</button>
+      <button id="logout">Sign out</button>
+    </header>
+    <nav>
+      <a data-tab="today" class="on">Today</a>
+      <a data-tab="opened">Opened</a>
+      <a data-tab="rules">Locks &amp; limits</a>
+      <a data-tab="log">Activity log</a>
+      <a data-tab="settings">Settings</a>
+    </nav>
+
+    <div data-pane="today">
+      <div class="tiles" id="tiles"></div>
+      <div class="card">
+        <h2>Apps and sites</h2>
+        <p>Times opened and time in front, for the day. <b>Lock</b> closes it now and keeps it closed until you unlock it; <b>Limit</b> sets minutes per day.</p>
+        <div class="scroll"><table>
+          <thead><tr><th>App or site</th><th class="num">Opened</th><th class="num">Time</th><th>First</th><th>Last</th><th></th><th></th></tr></thead>
+          <tbody id="summary"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div data-pane="opened" class="hidden">
+      <div class="card">
+        <h2>Everything opened</h2>
+        <p>One row each time an app was started or a site was opened, newest first.</p>
+        <div class="scroll"><table>
+          <thead><tr><th>Time</th><th>What</th><th>Where</th><th>Title / page</th></tr></thead>
+          <tbody id="opens"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div data-pane="rules" class="hidden">
+      <div class="card">
+        <h2>Add a lock or a limit</h2>
+        <p>A site rule covers its subdomains (youtube.com includes m.youtube.com). Limits count time while it is in front.</p>
+        <form class="form" id="ruleForm">
+          <select id="rKind"><option value="site">Site</option><option value="app">App</option></select>
+          <input id="rTarget" type="text" placeholder="youtube.com" />
+          <select id="rBrowser" title="Which browser">
+            <option value="">in any browser</option><option value="chrome">in Chrome only</option>
+            <option value="msedge">in Edge only</option><option value="firefox">in Firefox only</option>
+          </select>
+          <select id="rMode"><option value="limit">Limit per day</option><option value="block">Lock now</option></select>
+          <input id="rMinutes" type="number" min="1" max="1440" value="30" style="width:90px" title="Minutes per day" />
+          <span class="muted" id="rMinLbl">min/day</span>
+          <button class="primary" type="submit">Add</button>
+        </form>
+        <div class="err" id="ruleErr"></div>
+      </div>
+      <div class="card">
+        <h2>Locks and limits</h2>
+        <p>Unlock turns a rule off (it stays in the list). Extra time applies to today only.</p>
+        <div class="scroll"><table>
+          <thead><tr><th>App or site</th><th>Rule</th><th>Today</th><th></th></tr></thead>
+          <tbody id="rules"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div data-pane="log" class="hidden">
+      <div class="card">
+        <h2>Activity log</h2>
+        <p>Locks and limits enforced, warnings shown, and whether monitoring was ever interrupted.</p>
+        <div id="events"></div>
+      </div>
+    </div>
+
+    <div data-pane="settings" class="hidden">
+      <div class="card">
+        <h2>Change the parent password</h2>
+        <form class="form" id="pwForm">
+          <input type="password" id="pwOld" placeholder="Current password" autocomplete="current-password" />
+          <input type="password" id="pwNew" placeholder="New password (6+ characters)" autocomplete="new-password" />
+          <button type="submit">Change</button>
+        </form>
+        <div class="err" id="pwErr"></div>
+      </div>
+      <div class="card">
+        <h2>Stop monitoring</h2>
+        <p>Stops recording and enforcing until the monitor is started again (from this app, or at the next sign-in if start at sign-in is on).</p>
+        <button class="danger" id="stopMon">Stop monitoring</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="limitDlg">
+  <form method="dialog" id="limitForm">
+    <h3 id="limitTitle">Daily limit</h3>
+    <label for="limitMin">Minutes per day</label>
+    <input id="limitMin" type="number" min="1" max="1440" value="30" />
+    <div id="limitBrowserRow">
+      <label for="limitBrowser">Browser</label>
+      <select id="limitBrowser"></select>
+    </div>
+    <div class="err" id="limitErr"></div>
+    <div class="row"><button value="cancel" formnovalidate>Cancel</button><button class="primary" value="ok">Set limit</button></div>
+  </form>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hm = (ts) => ts ? new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+const dur = (s) => { s = Math.round(s || 0); if (s < 60) return s + " s"; const m = Math.round(s / 60); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min"; };
+let data = null, tab = "today", limitTarget = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json" },
+                                body: opts.body ? JSON.stringify(opts.body) : undefined });
+  if (r.status === 401 && !path.startsWith("/api/login") && !path.startsWith("/api/password")) { showLogin(); throw new Error("sign in"); }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Something went wrong.");
+  return body;
+}
+
+// ---- sign in -------------------------------------------------------------
+let setupMode = false;
+async function boot() {
+  const a = await api("/api/auth");
+  if (a.signed_in) return showApp();
+  setupMode = a.setup_needed;
+  showLogin();
+}
+function showLogin() {
+  $("appView").classList.add("hidden"); $("loginView").classList.remove("hidden");
+  $("loginTitle").textContent = setupMode ? "Set the parent password" : "Parent sign-in";
+  $("loginHelp").textContent = setupMode
+    ? "Only someone with this password can see the activity, change locks and limits, or stop monitoring. It cannot be recovered, so keep it safe."
+    : "Enter the parent password.";
+  $("pw2").classList.toggle("hidden", !setupMode);
+  $("loginBtn").textContent = setupMode ? "Set password" : "Sign in";
+  $("pw").focus();
+}
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  try {
+    if (setupMode) {
+      if ($("pw").value !== $("pw2").value) throw new Error("The passwords do not match.");
+      await api("/api/setup", { method: "POST", body: { password: $("pw").value } });
+    } else {
+      await api("/api/login", { method: "POST", body: { password: $("pw").value } });
+    }
+    $("pw").value = $("pw2").value = "";
+    showApp();
+  } catch (err) { $("loginErr").textContent = err.message; }
+});
+$("logout").addEventListener("click", async () => { await api("/api/logout", { method: "POST" }); setupMode = false; showLogin(); });
+
+// ---- app -------------------------------------------------------------------
+function showApp() {
+  $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden");
+  load();
+}
+async function load(day) {
+  data = await api("/api/report" + (day ? "?day=" + day : ($("day").value ? "?day=" + $("day").value : "")));
+  $("day").innerHTML = data.days.map((d) => `<option ${d === data.day ? "selected" : ""}>${d}</option>`).join("");
+  const m = data.monitor;
+  $("monStatus").textContent = m.running ? "Monitoring" : "Not monitoring" + (m.last_seen ? " since " + new Date(m.last_seen * 1000).toLocaleString() : "");
+  $("monStatus").classList.toggle("off", !m.running);
+  renderToday(); renderOpens(); renderRules(); renderEvents();
+}
+$("day").addEventListener("change", () => load($("day").value));
+$("refresh").addEventListener("click", () => load());
+document.querySelectorAll("nav a").forEach((a) => a.addEventListener("click", () => {
+  tab = a.dataset.tab;
+  document.querySelectorAll("nav a").forEach((x) => x.classList.toggle("on", x === a));
+  document.querySelectorAll("[data-pane]").forEach((p) => p.classList.toggle("hidden", p.dataset.pane !== tab));
+}));
+
+function ruleFor(kind, key) {
+  return data.rules.find((r) => r.kind === kind && r.target === key && r.enabled && (!r.browser || kind === "app"))
+      || data.rules.find((r) => r.kind === kind && r.target === key && r.enabled);
+}
+function stateCell(r) {
+  if (!r) return `<span class="pill free">open</span>`;
+  if (r.mode === "block") return `<span class="pill locked">locked</span>`;
+  return `<span class="pill ${r.locked ? "locked" : "limit"}">${r.locked ? "time up" : dur(r.left) + " left"}</span>`;
+}
+
+function renderToday() {
+  const s = data.summary, apps = s.filter((r) => r.kind === "app"), sites = s.filter((r) => r.kind === "site");
+  const total = apps.reduce((a, r) => a + r.seconds, 0);
+  const blocks = data.events.filter((e) => e.kind === "blocked" || e.kind === "limit_reached").length;
+  $("tiles").innerHTML = [
+    [dur(total), "screen time (in front)"], [apps.length, "apps used"], [sites.length, "sites visited"],
+    [s.reduce((a, r) => a + r.opens, 0), "times something was opened"], [blocks, "times a lock stepped in"],
+  ].map(([n, l]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  $("summary").innerHTML = s.length ? s.map((r) => {
+    const rule = ruleFor(r.kind, r.key);
+    const sub = r.kind === "site" ? (r.title || r.url || "") : (r.title || r.key);
+    return `<tr><td><span class="kind ${r.kind}">${r.kind}</span> <span class="what">${esc(r.name)}</span><div class="sub" title="${esc(sub)}">${esc(sub)}</div></td>
+      <td class="num">${r.opens}</td><td class="num">${dur(r.seconds)}</td><td>${hm(r.first)}</td><td>${hm(r.last)}</td>
+      <td>${stateCell(rule)}</td>
+      <td><div class="actions">${actionButtons(r.kind, r.key, rule, r.exe)}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="muted">Nothing recorded for this day yet.</td></tr>`;
+}
+function actionButtons(kind, key, rule, exe) {
+  const k = `data-kind="${kind}" data-key="${esc(key)}" data-exe="${esc(exe || "")}"`;
+  if (rule && rule.mode === "block") return `<button class="small" data-act="unlock" data-id="${rule.id}">Unlock</button>`;
+  return `<button class="small danger" data-act="lock" ${k}>Lock</button><button class="small" data-act="limit" ${k}>${rule ? "Change limit" : "Limit"}</button>`
+       + (rule && rule.mode === "limit" ? `<button class="small" data-act="extra" data-id="${rule.id}" data-min="15">+15 min</button>` : "");
+}
+
+function renderOpens() {
+  $("opens").innerHTML = data.opens.length ? data.opens.map((o) => `<tr><td>${hm(o.ts)}</td>
+    <td><span class="kind ${o.kind}">${o.kind}</span> <span class="what">${esc(o.name)}</span></td>
+    <td class="muted">${esc(o.browser || "")}</td>
+    <td><div class="sub" title="${esc(o.url || o.title)}">${esc(o.kind === "site" ? (o.url || o.title) : o.title)}</div></td></tr>`).join("")
+    : `<tr><td colspan="4" class="muted">Nothing opened on this day.</td></tr>`;
+}
+
+function renderRules() {
+  $("rules").innerHTML = data.rules.length ? data.rules.map((r) => {
+    const where = r.kind === "site" ? (r.browser_name ? " in " + r.browser_name : " in any browser") : "";
+    const rule = r.mode === "block" ? "Locked" : `${r.minutes} min/day` + (r.extra_minutes ? ` (+${r.extra_minutes} today)` : "");
+    let today = "";
+    if (!r.enabled) today = `<span class="pill free">unlocked</span>`;
+    else if (r.mode === "block") today = `<span class="pill locked">locked</span>`;
+    else {
+      const pct = Math.min(100, 100 * r.used / Math.max(1, r.allowed));
+      today = `${dur(r.used)} of ${dur(r.allowed)} ${stateCell(r)}<div class="bar"><div class="${pct >= 100 ? "full" : ""}" style="width:${pct}%"></div></div>`;
+    }
+    const acts = [
+      r.enabled ? `<button class="small" data-act="unlock" data-id="${r.id}">Unlock</button>` : `<button class="small danger" data-act="relock" data-id="${r.id}">${r.mode === "block" ? "Lock again" : "Turn on"}</button>`,
+      r.mode === "limit" && r.enabled ? `<button class="small" data-act="extra" data-id="${r.id}" data-min="15">+15 min</button><button class="small" data-act="extra" data-id="${r.id}" data-min="30">+30 min</button>` : "",
+      `<button class="small danger" data-act="delete" data-id="${r.id}">Remove</button>`,
+    ].join("");
+    return `<tr><td><span class="kind ${r.kind}">${r.kind}</span> <span class="what">${esc(r.name)}</span><span class="muted">${esc(where)}</span></td>
+      <td>${rule}</td><td>${today}</td><td><div class="actions">${acts}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="4" class="muted">No locks or limits yet. Add one above, or use Lock / Limit on the Today tab.</td></tr>`;
+}
+
+function renderEvents() {
+  const label = { blocked: "locked", limit_reached: "time up", warning: "warning", gap: "interrupted",
+                  monitor_start: "started", monitor_stop: "stopped", extra_time: "extra time" };
+  $("events").innerHTML = data.events.length ? data.events.map((e) => `<div class="ev"><span class="t">${hm(e.ts)}</span>
+    <span class="k ${e.kind}">${label[e.kind] || e.kind}</span><span>${esc(e.detail)}</span></div>`).join("")
+    : `<p class="muted">Nothing for this day.</p>`;
+}
+
+// ---- actions -------------------------------------------------------------------
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  try {
+    if (act === "lock") await api("/api/rules", { method: "POST", body: { kind: b.dataset.kind, target: b.dataset.key, mode: "block" } });
+    if (act === "unlock") await api(`/api/rules/${id}`, { method: "PATCH", body: { enabled: false } });
+    if (act === "relock") await api(`/api/rules/${id}`, { method: "PATCH", body: { enabled: true } });
+    if (act === "extra") await api(`/api/rules/${id}/extra`, { method: "POST", body: { minutes: Number(b.dataset.min) } });
+    if (act === "delete") { if (!confirm("Remove this rule?")) return; await api(`/api/rules/${id}`, { method: "DELETE" }); }
+    if (act === "limit") return openLimit(b.dataset.kind, b.dataset.key, b.dataset.exe);
+    load();
+  } catch (err) { alert(err.message); }
+});
+
+function openLimit(kind, key, exe) {
+  limitTarget = { kind, key };
+  $("limitTitle").textContent = `Daily limit for ${key}`;
+  $("limitErr").textContent = "";
+  $("limitBrowserRow").classList.toggle("hidden", kind !== "site");
+  const opts = [["", "Any browser"], ["chrome", "Chrome only"], ["msedge", "Edge only"], ["firefox", "Firefox only"]];
+  $("limitBrowser").innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("limitDlg").showModal();
+}
+$("limitForm").addEventListener("submit", async (e) => {
+  if (e.submitter && e.submitter.value === "cancel") return;
+  e.preventDefault();
+  try {
+    await api("/api/rules", { method: "POST", body: { kind: limitTarget.kind, target: limitTarget.key, mode: "limit",
+      minutes: Number($("limitMin").value), browser: $("limitBrowser").value || null } });
+    $("limitDlg").close(); load();
+  } catch (err) { $("limitErr").textContent = err.message; }
+});
+
+const syncRuleForm = () => {
+  const limit = $("rMode").value === "limit";
+  $("rMinutes").classList.toggle("hidden", !limit); $("rMinLbl").classList.toggle("hidden", !limit);
+  $("rBrowser").classList.toggle("hidden", $("rKind").value !== "site");
+  $("rTarget").placeholder = $("rKind").value === "site" ? "youtube.com" : "robloxplayerbeta.exe";
+};
+["rMode", "rKind"].forEach((id) => $(id).addEventListener("change", syncRuleForm));
+$("ruleForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("ruleErr").textContent = "";
+  try {
+    const limit = $("rMode").value === "limit";
+    await api("/api/rules", { method: "POST", body: { kind: $("rKind").value, target: $("rTarget").value, mode: $("rMode").value,
+      minutes: limit ? Number($("rMinutes").value) : null, browser: $("rKind").value === "site" ? ($("rBrowser").value || null) : null } });
+    $("rTarget").value = ""; load();
+  } catch (err) { $("ruleErr").textContent = err.message; }
+});
+
+$("pwForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("pwErr").textContent = "";
+  try {
+    await api("/api/password", { method: "POST", body: { old: $("pwOld").value, new: $("pwNew").value } });
+    $("pwOld").value = $("pwNew").value = ""; $("pwErr").textContent = "Password changed.";
+  } catch (err) { $("pwErr").textContent = err.message; }
+});
+$("stopMon").addEventListener("click", async () => {
+  if (!confirm("Stop monitoring? Nothing is recorded or locked until it starts again.")) return;
+  try { await api("/api/monitor/stop", { method: "POST" }); setTimeout(load, 1500); } catch (err) { alert(err.message); }
+});
+
+syncRuleForm();
+boot();
+setInterval(() => { if (!$("appView").classList.contains("hidden") && !$("limitDlg").open) load(); }, 30000);
+</script>
+</body>
+</html>
