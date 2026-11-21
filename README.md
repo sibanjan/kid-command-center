@@ -36,15 +36,20 @@ saying why and to ask a parent.
 
 ## Install (on his laptop, signed in as him)
 
-1. On your computer, build the release: `powershell -ExecutionPolicy Bypass -File installer\build.ps1`.
-   It makes `dist\KidCommandCenter-<version>.zip` (about 30 KB).
-2. Copy the zip to his laptop and extract it.
-3. Sign in to Windows **as him**, open PowerShell in the extracted folder (right-click the
-   folder > Open in Terminal) and run:
+1. Get the app onto his laptop, either way:
+   - the zip from the [Releases page](https://github.com/sibanjan/kid-command-center/releases)
+     (signed in to GitHub, since the repo is private), extracted; or
+   - a copy of this whole folder (clone or copy it).
+2. Sign in to Windows **as him**, open PowerShell in that folder (right-click the folder >
+   Open in Terminal) and run:
 
    ```powershell
-   iex (Get-Content .\install.ps1 -Raw)
+   iex (Get-Content .\install.ps1 -Raw)             # in the extracted release zip
+   iex (Get-Content .\installer\install.ps1 -Raw)   # in a copy of this folder
    ```
+
+To make a new release zip: `powershell -ExecutionPolicy Bypass -File installer\build.ps1`
+(writes `dist\KidCommandCenter-<version>.zip`).
 
 No admin rights are needed, and it works with Windows Smart App Control on (it runs no
 unsigned program). It downloads Python from python.org's NuGet package and the libraries from

@@ -1,9 +1,11 @@
 <#
 Kid Command Center install. On HIS laptop, signed in as HIM:
 
-  1. Copy KidCommandCenter-<version>.zip to the laptop and extract it.
-  2. Open PowerShell in the extracted folder (Shift+right-click the folder > Open in Terminal).
-  3. Run:   iex (Get-Content .\install.ps1 -Raw)
+  1. Copy either the kid-command-center folder (the source) or an extracted release zip
+     (KidCommandCenter-<version>.zip) to the laptop.
+  2. Open PowerShell in that folder (right-click the folder > Open in Terminal).
+  3. Run:   iex (Get-Content .\installer\install.ps1 -Raw)     # from the source folder
+     or:    iex (Get-Content .\install.ps1 -Raw)               # from an extracted release zip
 
 No admin rights needed. It unpacks the signed Python runtime from python.org's NuGet package,
 installs the app from this folder (its libraries come from PyPI), adds a Start menu entry for
@@ -26,9 +28,19 @@ function Install-KidCommandCenter {
     $appName = "Kid Command Center"
     $dir = if ($env:KCC_DIR) { $env:KCC_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\KidCommandCenter" }
     $from = if ($env:KCC_FROM) { $env:KCC_FROM } else { (Get-Location).Path }
-    if ($KccVersion.StartsWith("__")) { throw "Use the install.ps1 inside the release zip, not the one in the source folder." }
     $manifestPath = Join-Path $from "release.json"
-    if (-not (Test-Path $manifestPath)) { throw "release.json is not in $from. Run this from the extracted release folder." }
+    $source = $null
+    if (-not (Test-Path $manifestPath)) {
+        # Not a release folder: install straight from a copy of the source (the repo folder or
+        # its installer folder).
+        $source = @($from, (Split-Path $from -Parent)) | Where-Object { $_ -and (Test-Path (Join-Path $_ "pyproject.toml")) } | Select-Object -First 1
+        if (-not $source) {
+            throw "Run this from the kid-command-center folder (the one with pyproject.toml), or from an extracted release zip."
+        }
+        $m = Select-String -Path (Join-Path $source "pyproject.toml") -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+        $KccVersion = if ($m) { $m.Matches[0].Groups[1].Value } else { "source" }
+    }
+    if ($KccPython.StartsWith("__")) { $KccPython = "3.13.14" }
     Write-Host "Installing Kid Command Center $KccVersion for $env:USERNAME into $dir" -ForegroundColor Cyan
     Write-Host "It records and manages what is opened in THIS Windows account. Install it signed in as your child."
 
@@ -51,9 +63,15 @@ function Install-KidCommandCenter {
             if ($LASTEXITCODE -ne 0) { throw "Not upgraded: the parent password is needed." }
         }
 
-        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-        $wheel = Join-Path $from $manifest.wheel
-        $constraints = Join-Path $from $manifest.constraints
+        if ($source) {
+            $wheel = $source
+            $constraints = Join-Path $source "installer\constraints.txt"
+        }
+        else {
+            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            $wheel = Join-Path $from $manifest.wheel
+            $constraints = Join-Path $from $manifest.constraints
+        }
 
         Write-Host "[1/3] Downloading Python $KccPython..."
         $pkg = Join-Path $work "python.zip"
@@ -64,8 +82,9 @@ function Install-KidCommandCenter {
 
         Write-Host "[2/3] Installing Kid Command Center and its libraries..."
         Invoke-Checked $py @("-m", "ensurepip", "--upgrade")
-        Invoke-Checked $py @("-m", "pip", "install", "--no-warn-script-location", "--disable-pip-version-check",
-                             "--quiet", "-c", $constraints, $wheel)
+        $pin = if (Test-Path $constraints) { @("-c", $constraints) } else { @() }
+        Invoke-Checked $py (@("-m", "pip", "install", "--no-warn-script-location", "--disable-pip-version-check",
+                              "--quiet") + $pin + @($wheel))
 
         Write-Host "[3/3] Adding the Start menu entry and starting monitoring at sign-in..."
         $lnk = Join-Path ([Environment]::GetFolderPath("Programs")) "$appName.lnk"

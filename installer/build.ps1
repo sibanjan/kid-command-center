@@ -26,6 +26,8 @@ $constraints = "constraints-$version.txt"
 & $py -m pip freeze --exclude-editable --disable-pip-version-check |
     Where-Object { $_ -notmatch '^(pytest|ruff|httpx|iniconfig|pluggy|pygments|packaging)==' } |
     Set-Content -Encoding ASCII (Join-Path $out $constraints)
+# The same pins in the source tree, for installing straight from a copy of the repo.
+Copy-Item (Join-Path $out $constraints) (Join-Path $PSScriptRoot "constraints.txt")
 
 @{ version = $version; python = $pyVersion; wheel = $wheel; constraints = $constraints } |
     ConvertTo-Json | Set-Content -Encoding ASCII (Join-Path $out "release.json")
