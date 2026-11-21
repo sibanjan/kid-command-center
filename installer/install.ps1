@@ -1,20 +1,20 @@
 <#
-Kid Command Center install. On HIS laptop, signed in as HIM:
+Kid Command Center install. On HIS laptop, signed in as HIM, paste into PowerShell:
 
-  1. Copy either the kid-command-center folder (the source) or an extracted release zip
-     (KidCommandCenter-<version>.zip) to the laptop.
-  2. Open PowerShell in that folder (right-click the folder > Open in Terminal).
-  3. Run:   iex (Get-Content .\installer\install.ps1 -Raw)     # from the source folder
-     or:    iex (Get-Content .\install.ps1 -Raw)               # from an extracted release zip
+    irm https://github.com/sibanjan/kid-command-center-releases/releases/latest/download/install.ps1 | iex
+
+Or from a copy of the files:
+    iex (Get-Content .\install.ps1 -Raw)               # in an extracted release zip
+    iex (Get-Content .\installer\install.ps1 -Raw)     # in a copy of the source folder
 
 No admin rights needed. It unpacks the signed Python runtime from python.org's NuGet package,
-installs the app from this folder (its libraries come from PyPI), adds a Start menu entry for
-the parent window, starts monitoring at sign-in, and opens the window so you can set the parent
-password. Running it again upgrades in place; that asks for the parent password first.
+installs the app (its libraries come from PyPI), adds a Start menu entry for the parent window,
+starts monitoring at sign-in, and opens the window so you can set the parent password. Running
+it again upgrades in place; that asks for the parent password first.
 
 Options, as environment variables set before running it:
     $env:KCC_DIR = "D:\Apps\KidCommandCenter"   # where to install the program
-    $env:KCC_FROM = "C:\path\to\extracted\zip"  # where the release files are (default: this folder)
+    $env:KCC_FROM = "C:\path\to\extracted\zip"  # where the release files are
 #>
 
 $ErrorActionPreference = "Stop"
@@ -23,14 +23,21 @@ $ProgressPreference = "SilentlyContinue"
 # Stamped by installer\build.ps1.
 $KccVersion = "__APP_VERSION__"
 $KccPython = "__PYTHON_VERSION__"
+$KccRepo = "__RELEASE_REPO__"  # the public repo whose releases host the files
 
 function Install-KidCommandCenter {
     $appName = "Kid Command Center"
     $dir = if ($env:KCC_DIR) { $env:KCC_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\KidCommandCenter" }
     $from = if ($env:KCC_FROM) { $env:KCC_FROM } else { (Get-Location).Path }
-    $manifestPath = Join-Path $from "release.json"
+    $stamped = -not $KccVersion.StartsWith("__")
+    # Where the release files come from: a folder holding them, else (for a release copy of
+    # this script, e.g. run with irm | iex) the public release online, else a source copy.
+    if ($stamped -and -not $env:KCC_FROM -and -not (Test-Path (Join-Path $from "release.json"))) {
+        $from = "https://github.com/$KccRepo/releases/download/v$KccVersion"
+    }
+    $remote = $from.StartsWith("https://")
     $source = $null
-    if (-not (Test-Path $manifestPath)) {
+    if (-not $remote -and -not (Test-Path (Join-Path $from "release.json"))) {
         # Not a release folder: install straight from a copy of the source (the repo folder or
         # its installer folder).
         $source = @($from, (Split-Path $from -Parent)) | Where-Object { $_ -and (Test-Path (Join-Path $_ "pyproject.toml")) } | Select-Object -First 1
@@ -68,9 +75,16 @@ function Install-KidCommandCenter {
             $constraints = Join-Path $source "installer\constraints.txt"
         }
         else {
-            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $wheel = Join-Path $from $manifest.wheel
-            $constraints = Join-Path $from $manifest.constraints
+            function Get-Asset([string]$name) {
+                if (-not $remote) { return Join-Path $from $name }
+                $out = Join-Path $work $name
+                Invoke-WebRequest -UseBasicParsing "$from/$name" -OutFile $out
+                return $out
+            }
+            Write-Host "Getting the release files$(if ($remote) { ' from GitHub' })..."
+            $manifest = Get-Content (Get-Asset "release.json") -Raw | ConvertFrom-Json
+            $wheel = Get-Asset $manifest.wheel
+            $constraints = Get-Asset $manifest.constraints
         }
 
         Write-Host "[1/3] Downloading Python $KccPython..."

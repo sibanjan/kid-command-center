@@ -4,6 +4,10 @@ library versions (what the tests ran on), release.json and a stamped install.ps1
 
     powershell -ExecutionPolicy Bypass -File installer\build.ps1
 #>
+param(
+    # The public repo whose releases host the files (the code repo stays private).
+    [string]$ReleaseRepo = "sibanjan/kid-command-center-releases"
+)
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $py = Join-Path $repo ".venv\Scripts\python.exe"
@@ -33,7 +37,7 @@ Copy-Item (Join-Path $out $constraints) (Join-Path $PSScriptRoot "constraints.tx
     ConvertTo-Json | Set-Content -Encoding ASCII (Join-Path $out "release.json")
 
 # ASCII, no BOM: the script is run with iex, which breaks on a BOM.
-$script = (Get-Content (Join-Path $PSScriptRoot "install.ps1") -Raw).Replace("__APP_VERSION__", $version).Replace("__PYTHON_VERSION__", $pyVersion)
+$script = (Get-Content (Join-Path $PSScriptRoot "install.ps1") -Raw).Replace("__APP_VERSION__", $version).Replace("__PYTHON_VERSION__", $pyVersion).Replace("__RELEASE_REPO__", $ReleaseRepo)
 [IO.File]::WriteAllText((Join-Path $out "install.ps1"), $script, (New-Object Text.ASCIIEncoding))
 
 $zip = Join-Path $repo "dist\$name.zip"

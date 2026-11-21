@@ -36,20 +36,22 @@ saying why and to ask a parent.
 
 ## Install (on his laptop, signed in as him)
 
-1. Get the app onto his laptop, either way:
-   - the zip from the [Releases page](https://github.com/sibanjan/kid-command-center/releases)
-     (signed in to GitHub, since the repo is private), extracted; or
-   - a copy of this whole folder (clone or copy it).
-2. Sign in to Windows **as him**, open PowerShell in that folder (right-click the folder >
-   Open in Terminal) and run:
+Sign in to Windows **as him**, open PowerShell and paste:
 
-   ```powershell
-   iex (Get-Content .\install.ps1 -Raw)             # in the extracted release zip
-   iex (Get-Content .\installer\install.ps1 -Raw)   # in a copy of this folder
-   ```
+```powershell
+irm https://github.com/sibanjan/kid-command-center-releases/releases/latest/download/install.ps1 | iex
+```
 
-To make a new release zip: `powershell -ExecutionPolicy Bypass -File installer\build.ps1`
-(writes `dist\KidCommandCenter-<version>.zip`).
+The release files are in the public repo
+[kid-command-center-releases](https://github.com/sibanjan/kid-command-center-releases); this
+code repo stays private. Without internet access to GitHub, install from files instead: open
+PowerShell in an extracted release zip and run `iex (Get-Content .\install.ps1 -Raw)`, or in a
+copy of this folder and run `iex (Get-Content .\installer\install.ps1 -Raw)`.
+
+**Release a new version:** bump `version` in `pyproject.toml`, run
+`powershell -ExecutionPolicy Bypass -File installer\build.ps1`, then publish
+`dist\KidCommandCenter-<version>\*` with
+`gh release create v<version> --repo sibanjan/kid-command-center-releases --latest <files>`.
 
 No admin rights are needed, and it works with Windows Smart App Control on (it runs no
 unsigned program). It downloads Python from python.org's NuGet package and the libraries from
